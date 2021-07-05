@@ -1,4 +1,4 @@
-import { vElement } from "./ubf";
+import { vElement } from "./ubf.js";
 export function NumInput(o, k, options) {
     let r = new vElement('input');
     r.addEventListener('change', ({ flush, srcTarget }) => {
@@ -187,28 +187,3 @@ export function divBlock({ z = 9999999, st = false, bgColor = 'black', opacity =
         opacity: opacity
     });
 }
-/*少用keyof,性能问题严重(体感搭配引号使用时更严重)*/
-/*行数过多也会导致严重的性能问题*/
-/*type AttributesOf<T extends HTMLElement = HTMLElement> = {
-    [s in keyof T]?: string
-}*/
-/*export type TagNames = keyof HTMLElementTagNameMap*/
-/*type noReadOnly<T> = {
-    -readonly [K in keyof T]: T[K]
-}*/
-/*
-let a:vElement<any>
-typeof a.tag //string
-*/
-/*type SelectFromUnion<Union extends symbol | number | string, Unit> = Value<{
-    [K in Union]: K extends Unit ? K : never
-}>*/
-/*type Value<T> = T[keyof T]*/
-/*type Num<T extends Array<any>> = {
-    [k in number]: T[k]
-}*/
-/*type sa<T extends Array<any>> = {
-    [k in keyof T]: sb<T[k]>
-}
-type sb<T> = T extends vElement<any, infer i> ? i : never*/
-//export type sf<T extends any[]> = (string | vElement<any, Value<Num<sa<T>>>> | vText)[];
