@@ -1,5 +1,5 @@
-import { Watcher, f } from './ubf';
-import { stringObjectInput, numberObjectInput, stringObjectSelect } from './ubf-cmt';
+import { Watcher, f } from './ubf.js';
+import { stringObjectInput } from './ubf-cmt.js';
 
 window.onbeforeunload = function (e: BeforeUnloadEvent) {
     return e.returnValue = '1111'
@@ -126,6 +126,7 @@ void async function () {
                         }
                     }
                 }),
+                h('div').addChildren([]),
                 h('div').addChildren([
                     '备注:',
                     stringObjectInput(data, 'comment'),
