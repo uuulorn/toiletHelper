@@ -3,38 +3,42 @@ import { stringObjectInput } from './ubf-cmt.js';
 window.onbeforeunload = function (e) {
     return e.returnValue = '1111';
 };
+function padZero(n) {
+    return n.toString().padStart(2, '0');
+}
+function nowStr() {
+    const d = new Date;
+    return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())} ${padZero(d.getHours())}:${padZero(d.getMinutes())}:${padZero(d.getSeconds())}`;
+}
 void async function () {
-    function padZero(n) {
-        return n.toString().padStart(2, '0');
-    }
-    function nowStr() {
-        const d = new Date;
-        return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())} ${padZero(d.getHours())}:${padZero(d.getMinutes())}:${padZero(d.getSeconds())}`;
-    }
     const h = f();
     class Data0 {
         constructor() {
             this.image = null;
             this.masterName = '';
-            this.village = '';
+            this.houseNo = '';
             this.warningMessage = '';
             this.comment = '';
             this.keepSurname = true;
+            this.HouseNoContainedLength = 11;
         }
         isReady() {
-            return this.image && this.masterName && this.village;
+            return !!this.image && !!this.masterName && !!this.houseNo;
         }
         getFileName() {
             return [
+                this.houseNo + '号',
                 this.masterName + '户',
-                this.village + '村',
                 `[备注:${this.comment}]`
-            ].join('_') + '.webp';
+            ].join('_') + '.jpg';
         }
     }
     new Watcher({
         target: document.getElementById('app'),
         root(data) {
+            function t({ model }) {
+                model.warningMessage = model.isReady() ? '' : '请确保户主、村、照片不为空';
+            }
             return h('div').addChildren([
                 h('h3').addText('请竖直拍照'),
                 h('label').addChildren([
@@ -63,8 +67,8 @@ void async function () {
                     }),
                 ]),
                 h('div').addChildren([
-                    stringObjectInput(data, 'village'),
-                    '村'
+                    '编号',
+                    stringObjectInput(data, 'houseNo'),
                 ]),
                 h('button').setStyle({
                     width: '90%',
@@ -91,22 +95,10 @@ void async function () {
                             ctx.rotate(90 * Math.PI / 180);
                             ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, -canvas.height / 2, -canvas.width / 2, img.naturalWidth * zoomRate, img.naturalHeight * zoomRate);
                             ctx.restore();
-                            //
-                            /*
-                            ctx.shadowOffsetX = 2
-                            ctx.shadowOffsetY = 2
-                            ctx.shadowBlur = 2
-                            ctx.fillStyle = "#ffffff"
-                            ctx.textBaseline = "middle"
-                            ctx.font = "bold 16px sans-serif"
-                            ctx.fillText('经度: 112.406976', 15, canvas.height - 120)
-                            ctx.fillText('纬度: 22.342256', 15, canvas.height - 95)
-                            ctx.fillText('地址: 广东省恩平市牛江镇', 15, canvas.height - 70)
-                            ctx.fillText(`时间: ${nowStr()}`, 15, canvas.height - 45)
-                            ctx.fillText(`产权人/使用人: ${model.masterBig + model.masterName}`, 15, canvas.height - 20)
-                            //
-                            */
                             canvas.toBlob((b) => {
+                                if (!b) {
+                                    return alert('生成图片过程中发生错误,请重试');
+                                }
                                 const a = document.createElement('a');
                                 a.href = URL.createObjectURL(b);
                                 a.setAttribute('target', '_blank');
@@ -118,6 +110,7 @@ void async function () {
                                 model.image = null;
                                 img.onload = null;
                                 model.masterName = model.keepSurname ? model.masterName[0] : '';
+                                model.houseNo = model.houseNo.slice(0, model.HouseNoContainedLength);
                             }, 'image/jpeg', 0.5);
                         };
                     }
@@ -131,11 +124,7 @@ void async function () {
                     color: 'red',
                     visibility: data.isReady() ? 'hidden' : 'visible'
                 })
-            ]).addEventListener('change', ({ model }) => {
-                model.warningMessage = model.isReady() ? '' : '请确保户主、村、照片不为空';
-            }).addEventListener('click', ({ model }) => {
-                model.warningMessage = model.isReady() ? '' : '请确保户主、村、照片不为空';
-            });
+            ]).addEventListener('change', t).addEventListener('click', t);
         },
         listened: ['change', 'click'],
         data: new Data0,
