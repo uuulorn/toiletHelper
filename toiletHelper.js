@@ -22,6 +22,7 @@ void async function () {
             this.keepSurname = true;
             this.HouseNoContainedLength = 11;
             this.builtTime = '1990-1999';
+            this.floors = 2;
         }
         isReady() {
             return !!this.image && !!this.masterName && !!this.houseNo;
@@ -31,6 +32,7 @@ void async function () {
                 this.houseNo + '号',
                 this.masterName + '户',
                 this.builtTime + '建',
+                this.floors + '层',
                 `[备注:${this.comment}]`
             ].join('_') + '.jpg';
         }
@@ -46,7 +48,7 @@ void async function () {
                 h('label').addChildren([
                     h('input').setAttributes({
                         type: 'file',
-                        accept: 'image/*'
+                        accept: 'image/jpeg'
                     }).addEventListener('change', ({ model, srcTarget }) => {
                         const files = srcTarget.files;
                         if (files && files.length) {
@@ -92,6 +94,16 @@ void async function () {
                         return res;
                     })()).setValue(data.builtTime).addEventListener('change', ({ model, srcTarget }) => {
                         model.builtTime = srcTarget.value;
+                    }),
+                    '层数',
+                    h('select').addChildren((function () {
+                        const res = [];
+                        for (let i = 1; i < 7; i++) {
+                            res.push(h('option').addText(i + ''));
+                        }
+                        return res;
+                    })()).setValue(data.floors).addEventListener('change', ({ model, srcTarget }) => {
+                        model.floors = +srcTarget.value;
                     })
                 ]),
                 h('div').addChildren([
