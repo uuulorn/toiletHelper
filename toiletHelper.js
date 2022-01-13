@@ -21,6 +21,7 @@ void async function () {
             this.comment = '';
             this.keepSurname = true;
             this.HouseNoContainedLength = 11;
+            this.builtTime = '1990-1999';
         }
         isReady() {
             return !!this.image && !!this.masterName && !!this.houseNo;
@@ -69,6 +70,27 @@ void async function () {
                         return res;
                     })()).setValue(data.HouseNoContainedLength).addEventListener('change', ({ model, srcTarget }) => {
                         model.HouseNoContainedLength = +srcTarget.value;
+                    })
+                ]),
+                h('div').addChildren([
+                    '建设年代',
+                    h('select').addChildren((function () {
+                        const res = [];
+                        for (const t of [
+                            '1959以前',
+                            '1960-1969',
+                            '1970-1979',
+                            '1980-1989',
+                            '1990-1999',
+                            '2000-2010',
+                            '2011-2020',
+                            '2021-2022',
+                        ]) {
+                            res.push(h('option').addText(t));
+                        }
+                        return res;
+                    })()).setValue(data.builtTime).addEventListener('change', ({ model, srcTarget }) => {
+                        model.builtTime = srcTarget.value;
                     })
                 ]),
                 h('div').addChildren([
