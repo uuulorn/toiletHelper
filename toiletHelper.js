@@ -30,6 +30,7 @@ void async function () {
             return [
                 this.houseNo + '号',
                 this.masterName + '户',
+                this.builtTime + '建',
                 `[备注:${this.comment}]`
             ].join('_') + '.jpg';
         }
