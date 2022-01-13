@@ -60,6 +60,18 @@ void async function () {
                     border: '5px solid black',
                 }).addText(data.image ? data.getFileName() : '点击拍照'),
                 h('div').addChildren([
+                    '编号保留长度',
+                    h('select').addChildren((function () {
+                        const res = [];
+                        for (let i = 0; i < 12; i++) {
+                            res.push(h('option').addText(i + ''));
+                        }
+                        return res;
+                    })()).setValue(data.HouseNoContainedLength).addEventListener('change', ({ model, srcTarget }) => {
+                        model.HouseNoContainedLength = +srcTarget.value;
+                    })
+                ]),
+                h('div').addChildren([
                     '户主',
                     stringObjectInput(data, 'masterName'),
                     h('button').addText('清除').addEventListener('click', ({ model }) => {
