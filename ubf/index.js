@@ -2,32 +2,68 @@ export class vElement {
     constructor(tag) {
         this.attributes = Object.create(null);
         this.properties = Object.create(null);
-        this._on = Object.create(null);
+        this.$on = Object.create(null);
+        this.$once = Object.create(null);
         this.style = Object.create(null);
         this.children = [];
         this.$ref = null;
         this.tag = tag;
     }
-    addEventListener(type, handler) {
-        if (!this._on[type]) {
-            this._on[type] = [];
+    on(type, handler) {
+        if (!this.$on[type]) {
+            this.$on[type] = [];
         }
-        let g = this._on[type];
-        g.push(handler);
+        this.$on[type].push(handler);
+        return this;
+    }
+    once(type, handler) {
+        if (!this.$once[type]) {
+            this.$once[type] = [];
+        }
+        this.$once[type].push(handler);
+        return this;
+    }
+    emit(ev, info) {
+        {
+            const m = this.$on[ev];
+            if (m && m.length) {
+                for (let i = 0, l = m.length; i < l; i++) {
+                    m[i](info);
+                }
+            }
+        }
+        {
+            const m = this.$once[ev];
+            if (m && m.length) {
+                for (let i = 0, l = m.length; i < l; i++) {
+                    m[i](info);
+                }
+                m.length = 0;
+            }
+        }
+    }
+    addEventListener(type, handler) {
+        this.on(type, handler);
+        return this;
+    }
+    addClass(c) {
+        let oc = (this.attributes.class || '') + ' ' + c;
+        let s = new Set(oc.split(/\s/).filter(x => x));
+        this.setAttributes({ class: [...s].join(' ') });
         return this;
     }
     addChildren(children) {
         for (let child of children) {
-            if (typeof child === 'string') {
-                child = new vText(child);
-            }
-            this.children.push(child);
+            this.addChild(child);
         }
         return this;
     }
     addChild(child) {
         if (typeof child === 'string') {
             child = new vText(child);
+        }
+        if (!child) {
+            return this;
         }
         this.children.push(child);
         return this;
@@ -93,52 +129,107 @@ export class Watcher {
         this.root = (data) => new vElement('div');
         this.listened = [];
         this.target = null;
-        this.flushInterval = 100;
+        this.flushMs = 100;
         this.flushAfterEvent = false;
+        this.$on = Object.create(null);
+        this.$once = Object.create(null);
         this.flushing = false;
         this.vdomTree = null;
+        this.flushTimer = null;
         this.delayFlush = () => {
-            const t = setInterval(() => {
+            if (this.flushTimer !== null) {
+                return;
+            }
+            this.flushTimer = setInterval(() => {
                 if (this._flush()) {
-                    clearInterval(t);
+                    if (this.flushTimer !== null) {
+                        clearInterval(this.flushTimer);
+                        this.flushTimer = null;
+                    }
                 }
-            }, this.flushInterval);
+            }, this.flushMs);
         };
-        this.listened = init.listened;
+        this.listened = (init.listened || []).concat(['click', 'change']);
         this.target = init.target;
         this.data = init.data;
         this.root = init.root;
         this.model = this.genModel();
-        this.flushAfterEvent = init.flushAfterEvent;
+        this.flushAfterEvent = !!init.flushAfterEvent;
         this.listenDOMEvent();
         this.delayFlush();
+    }
+    afterflush(handler) {
+        this.on("afterflush", handler);
+    }
+    on(ev, handler) {
+        if (!this.$on[ev]) {
+            this.$on[ev] = [];
+        }
+        this.$on[ev].push(handler);
+    }
+    once(ev, handler) {
+        if (!this.$once[ev]) {
+            this.$once[ev] = [];
+        }
+        this.$once[ev].push(handler);
+    }
+    emit(ev) {
+        {
+            const m = this.$on[ev];
+            if (m && m.length) {
+                for (let i = 0, l = m.length; i < l; i++) {
+                    m[i]({
+                        model: this.model,
+                        eventName: ev,
+                        watcher: this
+                    });
+                }
+            }
+        }
+        {
+            const m = this.$once[ev];
+            if (m && m.length) {
+                for (let i = 0, l = m.length; i < l; i++) {
+                    m[i]({
+                        model: this.model,
+                        eventName: ev,
+                        watcher: this
+                    });
+                }
+                m.length = 0;
+            }
+        }
     }
     genModel() {
         return new Proxy(this.data, {
             get: (target, key) => {
                 if (target && (typeof target === 'object')) {
-                    this.delayFlush();
+                    this.flush();
                 }
                 return Reflect.get(target, key);
             },
             set: (target, key, value) => {
                 if (value !== Reflect.get(target, key)) {
                     Reflect.set(target, key, value);
-                    this.delayFlush();
+                    this.flush();
                 }
                 return true;
             }
         });
     }
+    is_rended() {
+        return !!this.vdomTree;
+    }
     flush() {
         this.delayFlush();
     }
     _flush() {
-        if (!this.flushing) {
+        const f = this.flushing;
+        if (!f) {
             this.flushing = true;
             setTimeout(() => {
                 this.flushing = false;
-            }, this.flushInterval);
+            }, this.flushMs);
             if (!this.vdomTree) {
                 if (!this.target) {
                     throw new Error('no target.');
@@ -161,8 +252,9 @@ export class Watcher {
                 singleElementDiff(this.vdomTree, newTree);
                 this.vdomTree = newTree;
             }
+            setTimeout(() => this.emit('afterflush'));
         }
-        return !this.flushing;
+        return !f;
     }
     listenDOMEvent() {
         let f = (type) => {
@@ -175,20 +267,13 @@ export class Watcher {
                     currentTarget: target,
                     watcher: this,
                     flush: this.delayFlush,
+                    stop: false
                 };
                 for (let current = target; current; current = current.parentElement) {
-                    let $ref = Reflect.get(current, '$ref');
+                    const $ref = Reflect.get(current, '$ref');
                     if ($ref) {
                         g.currentTarget = current;
-                        let $on = $ref._on;
-                        if ($on) {
-                            let ot = $on[type];
-                            if (ot) {
-                                for (let ff of ot) {
-                                    ff(g);
-                                }
-                            }
-                        }
+                        new Promise(res => res(null)).then(() => (!g.stop) && $ref.emit(type, g));
                     }
                 }
                 this.flushAfterEvent && this.delayFlush();
@@ -200,9 +285,21 @@ export class Watcher {
         }
     }
 }
+export class vHTML extends vElement {
+    constructor(tag, html) {
+        super(tag);
+        this.html = '';
+        this.html = html;
+    }
+}
 export function f() {
     return function h(tag, comment = '') {
         return new vElement(tag);
+    };
+}
+export function g() {
+    return function ht(tag, html) {
+        return new vHTML(tag, html);
     };
 }
 export async function sleep(ms, val) {
@@ -228,18 +325,23 @@ function rend(node) {
         for (const [key, value] of Object.entries(style)) {
             rst[key] = value;
         }
-        for (let child of children) {
-            res.appendChild(rend(child));
+        if (node instanceof vHTML) {
+            res.innerHTML = node.html;
+        }
+        else {
+            for (const child of children) {
+                res.appendChild(rend(child));
+            }
         }
         for (let [key, value] of Object.entries(attributes)) {
-            isNul(value) || res.setAttribute(key, value.toString());
+            isNul(value) || res.setAttribute(key, value + '');
         }
         for (let [key, value] of Object.entries(properties)) {
             Reflect.set(res, key, value);
         }
     }
     else {
-        res = document.createTextNode(node.data.toString());
+        res = document.createTextNode(node.data + '');
     }
     node.$ref = res;
     Reflect.set(res, '$ref', node);
@@ -270,63 +372,71 @@ function chidrenDiff(ocs, ncs, pr) {
     }
 }
 function attrsDiff(type, ot, nt, $ref) {
-    switch (type) {
-        case 'attributes':
-            {
-                const keysSet = new Set([...Object.keys(ot.attributes), ...Object.keys(nt.attributes)]);
-                for (const key of keysSet) {
-                    const v0 = nt.attributes[key];
-                    const v1 = ot.attributes[key];
-                    if (isNul(v0)) {
-                        $ref.removeAttribute(key);
-                    }
-                    else if (v0 !== v1) {
-                        $ref.setAttribute(key, v0.toString());
-                    }
-                }
-            }
-            break;
-        case 'properties':
-            {
-                const keysSet = new Set([...Object.keys(ot.properties), ...Object.keys(nt.properties)]);
-                for (const key of keysSet) {
-                    if (key === '$ref')
-                        continue;
-                    const v0 = nt.properties[key];
-                    const v1 = ot.properties[key];
-                    if (v0 !== v1) {
-                        Reflect.set($ref, key, v0);
+    const f = () => {
+        switch (type) {
+            case 'attributes':
+                {
+                    const keysSet = new Set([...Object.keys(ot.attributes), ...Object.keys(nt.attributes)]);
+                    for (const key of keysSet) {
+                        const v0 = nt.attributes[key];
+                        const v1 = ot.attributes[key];
+                        if (isNul(v0)) {
+                            $ref.removeAttribute(key);
+                        }
+                        else if (v0 !== v1) {
+                            $ref.setAttribute(key, v0 + '');
+                        }
                     }
                 }
-            }
-            break;
-        case 'styles':
-            {
-                const keysSet = new Set([...Object.keys(ot.style), ...Object.keys(nt.style)]);
-                for (const key of keysSet) {
-                    const v0 = nt.style[key];
-                    const v1 = ot.style[key];
-                    if (isNul(v0)) {
-                        $ref.style[key] = '';
-                    }
-                    else if (v0 !== v1) {
-                        $ref.style[key] = v0.toString();
+                break;
+            case 'properties':
+                {
+                    const keysSet = new Set([...Object.keys(ot.properties), ...Object.keys(nt.properties)]);
+                    for (const key of keysSet) {
+                        if (key === '$ref')
+                            continue;
+                        const v0 = nt.properties[key];
+                        const v1 = ot.properties[key];
+                        if (v0 !== v1) {
+                            Reflect.set($ref, key, v0);
+                        }
                     }
                 }
-            }
-            break;
-    }
+                break;
+            case 'styles':
+                {
+                    const keysSet = new Set([...Object.keys(ot.style), ...Object.keys(nt.style)]);
+                    for (const key of keysSet) {
+                        const v0 = nt.style[key];
+                        const v1 = ot.style[key];
+                        if (isNul(v0)) {
+                            $ref.style[key] = '';
+                        }
+                        else if (v0 !== v1) {
+                            $ref.style[key] = v0 + '';
+                        }
+                    }
+                }
+                break;
+        }
+    };
+    new Promise(res => res(void 0)).then(() => f());
 }
 function singleElementDiff(ot, nt) {
     const _ref = shiftRef(ot, nt);
     if (!_ref)
         return;
-    if (ot instanceof vElement && nt instanceof vElement && ot.tag === nt.tag) {
+    if (nt instanceof vHTML) {
+        if (!((ot instanceof vHTML) && (ot.tag === nt.tag) && (ot.html === nt.html))) {
+            _ref.replaceWith(rend(nt));
+        }
+    }
+    else if (ot instanceof vElement && nt instanceof vElement && ot.tag === nt.tag) {
         const $ref = _ref;
+        chidrenDiff(ot.children, nt.children, $ref);
         attrsDiff('attributes', ot, nt, $ref);
         attrsDiff('styles', ot, nt, $ref);
         attrsDiff('properties', ot, nt, $ref);
-        chidrenDiff(ot.children, nt.children, $ref);
     }
     else if (ot instanceof vText && nt instanceof vText) {
         if (nt.data !== ot.data) {
@@ -337,3 +447,4 @@ function singleElementDiff(ot, nt) {
         _ref.replaceWith(rend(nt));
     }
 }
+//# sourceMappingURL=index.js.map
