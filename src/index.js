@@ -1,4 +1,7 @@
 import * as ubf from "../ubf/index.js";
+window.onbeforeunload = e => {
+    e.returnValue = '11';
+};
 void function () {
     if (!navigator.userAgent.toUpperCase().includes('EDG')) {
         alert('你的浏览器可能不是edge,请更换为edge后再使用本页面');
@@ -18,7 +21,6 @@ new ubf.Watcher({
         return Components.app(data);
     },
     data: new Data,
-    listened: ['loadedmetadata']
 });
 var Components;
 (function (Components) {
