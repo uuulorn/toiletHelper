@@ -1,4 +1,11 @@
 import * as ubf from "../ubf/index.js";
+void function () {
+    if (!navigator.userAgent.toUpperCase().includes('EDG')) {
+        alert('你的浏览器可能不是edge,请更换为edge后再使用本页面');
+        throw '你的浏览器可能不是edge,请更换为edge后再使用本页面';
+    }
+}();
+alert('为避免竹篮打水一场空,请确保当前使用的浏览器是edge');
 class Data {
     constructor() {
         this.downloadName = '';
